@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface NewsArticle {
   id: number;
@@ -34,7 +36,9 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const loadNews = async () => {
     setLoading(true);
@@ -134,14 +138,24 @@ export default function Index() {
               </div>
             </div>
             
-            <Button 
-              onClick={handleGenerateNews}
-              disabled={generating}
-              className="bg-gradient-to-r from-[#1EAEDB] to-[#0c8cb8] hover:from-[#0c8cb8] hover:to-[#1EAEDB] text-white border-0"
-            >
-              <Icon name={generating ? "Loader2" : "Zap"} className={generating ? "animate-spin mr-2" : "mr-2"} size={16} />
-              {generating ? 'Генерация...' : 'Сгенерировать новость'}
-            </Button>
+<div className="flex items-center gap-3">
+              <Button 
+                variant="ghost"
+                onClick={() => navigate('/admin')}
+                className="text-white hover:bg-white/10"
+              >
+                <Icon name="Settings" className="mr-2" size={16} />
+                Админ
+              </Button>
+              <Button 
+                onClick={handleGenerateNews}
+                disabled={generating}
+                className="bg-gradient-to-r from-[#1EAEDB] to-[#0c8cb8] hover:from-[#0c8cb8] hover:to-[#1EAEDB] text-white border-0"
+              >
+                <Icon name={generating ? "Loader2" : "Zap"} className={generating ? "animate-spin mr-2" : "mr-2"} size={16} />
+                {generating ? 'Генерация...' : 'Сгенерировать новость'}
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -186,59 +200,71 @@ export default function Index() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+<div className="space-y-4">
             {filteredNews.map((article) => (
-              <Card 
+              <Collapsible 
                 key={article.id}
-                className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-[#1EAEDB]/50 transition-all duration-300 overflow-hidden group cursor-pointer"
+                open={expandedId === article.id}
+                onOpenChange={(open) => setExpandedId(open ? article.id : null)}
               >
-                {article.image_url && (
-                  <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={article.image_url} 
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                    <Badge className="absolute top-3 right-3 bg-[#1EAEDB]/90 text-white border-0">
-                      {article.category}
-                    </Badge>
-                  </div>
-                )}
-                
-                <CardHeader>
-                  <CardTitle className="text-white group-hover:text-[#1EAEDB] transition-colors line-clamp-2">
-                    {article.title}
-                  </CardTitle>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                    <span className="flex items-center gap-1">
-                      <Icon name="Calendar" size={12} />
-                      {formatDate(article.created_at)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Icon name="Eye" size={12} />
-                      {article.view_count}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Icon name="FileText" size={12} />
-                      {article.word_count} слов
-                    </span>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  <p className="text-gray-400 text-sm line-clamp-3">
-                    {article.content}
-                  </p>
-                  <Button 
-                    variant="link" 
-                    className="px-0 text-[#1EAEDB] hover:text-[#0c8cb8] mt-3"
-                  >
-                    Читать полностью
-                    <Icon name="ArrowRight" size={16} className="ml-1" />
-                  </Button>
-                </CardContent>
-              </Card>
+                <Card className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-[#1EAEDB]/50 transition-all duration-300 overflow-hidden">
+                  <CollapsibleTrigger className="w-full text-left">
+                    <div className="flex items-start gap-4 p-6">
+                      {article.image_url && (
+                        <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden rounded-lg">
+                          <img 
+                            src={article.image_url} 
+                            alt={article.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <Badge className="absolute top-2 right-2 bg-[#1EAEDB]/90 text-white border-0 text-xs">
+                            {article.category}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-xl font-bold text-white mb-2 hover:text-[#1EAEDB] transition-colors">
+                          {article.title}
+                        </h3>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                          <span className="flex items-center gap-1">
+                            <Icon name="Calendar" size={12} />
+                            {formatDate(article.created_at)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Icon name="Eye" size={12} />
+                            {article.view_count}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Icon name="FileText" size={12} />
+                            {article.word_count} слов
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-sm line-clamp-2">
+                          {article.content}
+                        </p>
+                      </div>
+                      
+                      <Icon 
+                        name={expandedId === article.id ? "ChevronUp" : "ChevronDown"} 
+                        className="text-[#1EAEDB] flex-shrink-0 mt-1" 
+                        size={24} 
+                      />
+                    </div>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className="px-6 pb-6">
+                    <div className="border-t border-white/10 pt-6">
+                      <div className="prose prose-invert max-w-none">
+                        <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
+                          {article.content}
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             ))}
           </div>
         )}
@@ -263,11 +289,9 @@ export default function Index() {
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Навигация</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li>Главная</li>
-                <li>Архив</li>
-                <li>Поиск</li>
-                <li>Админ-панель</li>
+<ul className="space-y-2 text-sm text-gray-400">
+                <li className="cursor-pointer hover:text-white transition-colors" onClick={() => navigate('/')}>Главная</li>
+                <li className="cursor-pointer hover:text-white transition-colors" onClick={() => navigate('/admin')}>Админ-панель</li>
               </ul>
             </div>
             <div>
