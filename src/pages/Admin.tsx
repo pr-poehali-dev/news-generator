@@ -120,7 +120,8 @@ export default function Admin() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-white/80 space-y-2 text-sm">
-              <p>• Используется бесплатная нейросеть Groq (LLaMA 3.3 70B)</p>
+              <p>• Используется DeepSeek API (очень дешёвая нейросеть)</p>
+              <p>• Стоимость: ~$0.27 за 1 миллион токенов</p>
               <p>• Генерация занимает 30-60 секунд</p>
               <p>• Статьи проверяются на уникальность</p>
               <p>• Автоматическая генерация изображений</p>
