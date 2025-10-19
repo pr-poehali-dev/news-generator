@@ -1,7 +1,7 @@
 '''
-Business: Generate AI news articles and store in database with plagiarism check
-Args: event with httpMethod, body with category parameter
-Returns: HTTP response with generated article data
+Business: Auto-generate news articles for all categories (triggered by cron/scheduler)
+Args: event with httpMethod GET
+Returns: HTTP response with generation results
 '''
 
 import json
@@ -11,6 +11,9 @@ from psycopg2.extras import RealDictCursor
 from typing import Dict, Any, List
 import requests
 from difflib import SequenceMatcher
+from datetime import datetime, timedelta
+
+CATEGORIES = ['IT', 'Криптовалюта', 'Игры', 'Финансы', 'Мир']
 
 def check_similarity(text1: str, text2: str) -> float:
     return SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
@@ -86,6 +89,16 @@ def generate_with_openai(category: str, existing_titles: List[str]) -> Dict[str,
 def generate_image(title: str) -> str:
     return f'https://picsum.photos/seed/{hash(title)}/1200/630'
 
+def check_recent_generation(cur, category: str) -> bool:
+    five_minutes_ago = datetime.now() - timedelta(minutes=5)
+    cur.execute(
+        """SELECT COUNT(*) as count FROM news_articles 
+           WHERE category = %s AND created_at > %s""",
+        (category, five_minutes_ago)
+    )
+    result = cur.fetchone()
+    return result['count'] > 0
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     
@@ -94,24 +107,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
             'body': '',
             'isBase64Encoded': False
         }
-    
-    if method != 'POST':
-        return {
-            'statusCode': 405,
-            'headers': {'Access-Control-Allow-Origin': '*'},
-            'body': json.dumps({'error': 'Method not allowed'}),
-            'isBase64Encoded': False
-        }
-    
-    body = json.loads(event.get('body', '{}'))
-    category = body.get('category', 'IT')
     
     db_url = os.environ.get('DATABASE_URL')
     if not db_url:
@@ -125,50 +127,81 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     conn = psycopg2.connect(db_url)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
-    cur.execute(
-        "SELECT title, content FROM news_articles WHERE category = %s ORDER BY created_at DESC LIMIT 20",
-        (category,)
-    )
-    existing_articles = cur.fetchall()
-    existing_titles = [article['title'] for article in existing_articles]
+    results = []
     
-    max_attempts = 3
-    for attempt in range(max_attempts):
-        article_data = generate_with_openai(category, existing_titles)
+    for category in CATEGORIES:
+        if check_recent_generation(cur, category):
+            results.append({
+                'category': category,
+                'status': 'skipped',
+                'message': 'Recently generated'
+            })
+            continue
         
-        if not check_plagiarism(article_data['content'], existing_articles):
-            break
+        cur.execute(
+            "SELECT title, content FROM news_articles WHERE category = %s ORDER BY created_at DESC LIMIT 20",
+            (category,)
+        )
+        existing_articles = cur.fetchall()
+        existing_titles = [article['title'] for article in existing_articles]
         
-        if attempt == max_attempts - 1:
-            cur.close()
-            conn.close()
-            return {
-                'statusCode': 500,
-                'headers': {'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': 'Failed to generate unique content after 3 attempts'}),
-                'isBase64Encoded': False
-            }
-    
-    title = article_data['title']
-    content = article_data['content']
-    word_count = len(content.split())
-    image_url = generate_image(title)
-    
-    cur.execute(
-        """INSERT INTO news_articles (title, content, category, image_url, word_count, view_count)
-           VALUES (%s, %s, %s, %s, %s, 0)
-           RETURNING id, title, content, category, image_url, word_count, created_at, view_count""",
-        (title, content, category, image_url, word_count)
-    )
-    
-    new_article = cur.fetchone()
-    conn.commit()
-    
-    cur.execute(
-        "INSERT INTO generation_log (category, status) VALUES (%s, %s)",
-        (category, 'success')
-    )
-    conn.commit()
+        max_attempts = 3
+        success = False
+        
+        for attempt in range(max_attempts):
+            try:
+                article_data = generate_with_openai(category, existing_titles)
+                
+                if not check_plagiarism(article_data['content'], existing_articles):
+                    title = article_data['title']
+                    content = article_data['content']
+                    word_count = len(content.split())
+                    image_url = generate_image(title)
+                    
+                    cur.execute(
+                        """INSERT INTO news_articles (title, content, category, image_url, word_count, view_count)
+                           VALUES (%s, %s, %s, %s, %s, 0)
+                           RETURNING id""",
+                        (title, content, category, image_url, word_count)
+                    )
+                    
+                    new_id = cur.fetchone()['id']
+                    conn.commit()
+                    
+                    cur.execute(
+                        "INSERT INTO generation_log (category, status) VALUES (%s, %s)",
+                        (category, 'success')
+                    )
+                    conn.commit()
+                    
+                    results.append({
+                        'category': category,
+                        'status': 'success',
+                        'article_id': new_id,
+                        'word_count': word_count
+                    })
+                    success = True
+                    break
+            except Exception as e:
+                if attempt == max_attempts - 1:
+                    cur.execute(
+                        "INSERT INTO generation_log (category, status, error_message) VALUES (%s, %s, %s)",
+                        (category, 'error', str(e))
+                    )
+                    conn.commit()
+                    
+                    results.append({
+                        'category': category,
+                        'status': 'error',
+                        'message': str(e)
+                    })
+        
+        if not success and attempt == max_attempts - 1:
+            results.append({
+                'category': category,
+                'status': 'failed',
+                'message': 'Plagiarism check failed after 3 attempts'
+            })
     
     cur.close()
     conn.close()
@@ -180,14 +213,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'Access-Control-Allow-Origin': '*'
         },
         'body': json.dumps({
-            'id': new_article['id'],
-            'title': new_article['title'],
-            'content': new_article['content'],
-            'category': new_article['category'],
-            'image_url': new_article['image_url'],
-            'word_count': new_article['word_count'],
-            'created_at': new_article['created_at'].isoformat(),
-            'view_count': new_article['view_count']
+            'generated': len([r for r in results if r['status'] == 'success']),
+            'results': results
         }),
         'isBase64Encoded': False
     }

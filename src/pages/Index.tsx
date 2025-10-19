@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
 
 interface NewsArticle {
   id: number;
@@ -38,19 +37,18 @@ export default function Index() {
   const [generating, setGenerating] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const loadNews = async () => {
     setLoading(true);
     try {
-      const response = await fetch('https://functions.poehali.dev/ab1ca055-c853-4316-af54-562e2559e314');
+      const response = await fetch('https://functions.poehali.dev/af8bded5-e442-41d9-b777-b7b7c0f5a349');
       if (response.ok) {
         const data = await response.json();
         setNews(data);
         setFilteredNews(data);
       }
     } catch (error) {
-      console.error('Error loading news:', error);
+      console.error('Failed to load news:', error);
     } finally {
       setLoading(false);
     }
@@ -58,6 +56,8 @@ export default function Index() {
 
   useEffect(() => {
     loadNews();
+    const interval = setInterval(loadNews, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -67,11 +67,10 @@ export default function Index() {
       filtered = filtered.filter(article => article.category === selectedCategory);
     }
     
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (searchQuery) {
       filtered = filtered.filter(article => 
-        article.title.toLowerCase().includes(query) ||
-        article.content.toLowerCase().includes(query)
+        article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        article.content.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
     
@@ -83,26 +82,31 @@ export default function Index() {
     try {
       const response = await fetch('https://functions.poehali.dev/2cddb11e-55d0-46d8-b217-654842785853', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          category: selectedCategory === 'all' ? 'IT' : selectedCategory 
+        })
       });
-      
+
       if (response.ok) {
+        const newArticle = await response.json();
+        setNews(prev => [newArticle, ...prev]);
         toast({
           title: "Новость сгенерирована!",
-          description: "Новая статья добавлена в базу данных"
+          description: `Статья "${newArticle.title}" успешно создана`,
         });
-        await loadNews();
       } else {
+        const error = await response.json();
         toast({
-          title: "Ошибка",
-          description: "Не удалось сгенерировать новость",
+          title: "Ошибка генерации",
+          description: error.error || "Не удалось сгенерировать новость",
           variant: "destructive"
         });
       }
     } catch (error) {
       toast({
         title: "Ошибка",
-        description: "Проблема с подключением к серверу",
+        description: "Не удалось подключиться к серверу",
         variant: "destructive"
       });
     } finally {
@@ -112,41 +116,33 @@ export default function Index() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('ru-RU', {
-      day: 'numeric',
-      month: 'long',
+    return date.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'long', 
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(date);
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#221F26] via-[#2a2730] to-[#221F26]">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMxRUFFREIiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE0aDJWMGgtMnpNMzQgMTZoMlYyaC0yek0zMiAxOGgyVjRoLTJ6TTMwIDIwaDJWNmgtMnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_110%)] -z-10"></div>
       
-      <header className="relative border-b border-white/10 bg-black/20 backdrop-blur-md">
+      <header className="relative border-b border-white/10 bg-black/20 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#1EAEDB] to-[#0c8cb8] rounded-lg flex items-center justify-center">
-                <Icon name="Sparkles" className="text-white" size={24} />
+              <div className="w-12 h-12 bg-gradient-to-br from-[#1EAEDB] to-[#0c8cb8] rounded-xl flex items-center justify-center shadow-lg shadow-[#1EAEDB]/20">
+                <Icon name="Newspaper" className="text-white" size={24} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">NewsAI</h1>
-                <p className="text-xs text-gray-400">Автогенератор новостей</p>
+                <h1 className="text-3xl font-bold text-white">NewsAI</h1>
+                <p className="text-gray-400 text-sm">Новости созданные ИИ</p>
               </div>
             </div>
             
-<div className="flex items-center gap-3">
-              <Button 
-                variant="ghost"
-                onClick={() => navigate('/admin')}
-                className="text-white hover:bg-white/10"
-              >
-                <Icon name="Settings" className="mr-2" size={16} />
-                Админ
-              </Button>
+            <div className="flex items-center gap-3">
               <Button 
                 onClick={handleGenerateNews}
                 disabled={generating}
@@ -160,25 +156,28 @@ export default function Index() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 relative">
-          <Input
-            type="text"
-            placeholder="Поиск новостей..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-[#1EAEDB]"
-          />
-          <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
+      <div className="container mx-auto px-4 py-12">
+        <div className="mb-8 flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Icon name="Search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
+              <Input 
+                placeholder="Поиск новостей..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-[#1EAEDB]"
+              />
+            </div>
+          </div>
         </div>
 
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-8">
-          <TabsList className="w-full justify-start bg-white/5 border border-white/10 p-1 gap-2 flex-wrap h-auto">
+          <TabsList className="bg-white/5 border border-white/10 p-1 flex-wrap h-auto gap-2">
             {categories.map((cat) => (
-              <TabsTrigger
-                key={cat.value}
+              <TabsTrigger 
+                key={cat.value} 
                 value={cat.value}
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#1EAEDB] data-[state=active]:to-[#0c8cb8] data-[state=active]:text-white text-gray-400 hover:text-white transition-all"
+                className="data-[state=active]:bg-[#1EAEDB] data-[state=active]:text-white text-gray-400 hover:text-white transition-all"
               >
                 <Icon name={cat.icon as any} size={16} className="mr-2" />
                 {cat.name}
@@ -200,7 +199,7 @@ export default function Index() {
             </CardContent>
           </Card>
         ) : (
-<div className="space-y-4">
+          <div className="space-y-4">
             {filteredNews.map((article) => (
               <Collapsible 
                 key={article.id}
@@ -288,11 +287,8 @@ export default function Index() {
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-3">Навигация</h4>
-<ul className="space-y-2 text-sm text-gray-400">
-                <li className="cursor-pointer hover:text-white transition-colors" onClick={() => navigate('/')}>Главная</li>
-                <li className="cursor-pointer hover:text-white transition-colors" onClick={() => navigate('/admin')}>Админ-панель</li>
-              </ul>
+              <h4 className="text-white font-semibold mb-3">О проекте</h4>
+              <p className="text-gray-400 text-sm">Новости генерируются автоматически каждые 5 минут с использованием GPT-4</p>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Контакты</h4>

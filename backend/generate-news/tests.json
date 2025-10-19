@@ -1,15 +1,19 @@
 {
   "tests": [
     {
-      "name": "Generate news article",
+      "name": "Generate news article with category",
       "method": "POST",
       "path": "/",
+      "body": {
+        "category": "IT"
+      },
       "expectedStatus": 200,
       "expectedBody": {
         "id": "number",
         "title": "string",
         "category": "string",
-        "content": "string"
+        "content": "string",
+        "word_count": "number"
       },
       "bodyMatcher": "partial"
     }

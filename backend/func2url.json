@@ -1,4 +1,6 @@
 {
+  "get-news": "https://functions.poehali.dev/af8bded5-e442-41d9-b777-b7b7c0f5a349",
+  "auto-generate": "https://functions.poehali.dev/b06f6c27-7e7d-4ba2-bce5-16d7f82654d7",
   "generate-news": "https://functions.poehali.dev/2cddb11e-55d0-46d8-b217-654842785853",
   "news": "https://functions.poehali.dev/ab1ca055-c853-4316-af54-562e2559e314"
 }

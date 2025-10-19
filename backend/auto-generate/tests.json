@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "name": "Auto-generate news for all categories",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "generated": "number",
+        "results": "array"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
