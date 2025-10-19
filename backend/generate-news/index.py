@@ -22,10 +22,10 @@ def check_plagiarism(content: str, existing_articles: List[Dict]) -> bool:
             return True
     return False
 
-def generate_with_openai(category: str, existing_titles: List[str]) -> Dict[str, str]:
-    api_key = os.environ.get('OPENAI_API_KEY')
+def generate_with_groq(category: str, existing_titles: List[str]) -> Dict[str, str]:
+    api_key = os.environ.get('GROQ_API_KEY')
     if not api_key:
-        raise ValueError('OPENAI_API_KEY not configured')
+        raise ValueError('GROQ_API_KEY not configured')
     
     existing_titles_text = '\n'.join([f"- {title}" for title in existing_titles[-10:]])
     
@@ -41,32 +41,32 @@ def generate_with_openai(category: str, existing_titles: List[str]) -> Dict[str,
 - Структура: введение, основная часть с подзаголовками, заключение
 - Пиши профессионально, как журналист топового издания
 
-Верни JSON:
+Верни ТОЛЬКО JSON без дополнительного текста:
 {{
   "title": "Заголовок новости",
   "content": "Полный текст статьи 5000+ слов"
 }}"""
 
     response = requests.post(
-        'https://api.openai.com/v1/chat/completions',
+        'https://api.groq.com/openai/v1/chat/completions',
         headers={
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
         },
         json={
-            'model': 'gpt-4o-mini',
+            'model': 'llama-3.3-70b-versatile',
             'messages': [
-                {'role': 'system', 'content': 'Ты профессиональный журналист, пишущий длинные аналитические статьи.'},
+                {'role': 'system', 'content': 'Ты профессиональный журналист, пишущий длинные аналитические статьи. Отвечай ТОЛЬКО валидным JSON.'},
                 {'role': 'user', 'content': prompt}
             ],
             'temperature': 0.9,
-            'max_tokens': 16000
+            'max_tokens': 8000
         },
         timeout=120
     )
     
     if response.status_code != 200:
-        raise Exception(f'OpenAI API error: {response.text}')
+        raise Exception(f'Groq API error: {response.text}')
     
     result = response.json()
     content = result['choices'][0]['message']['content']
@@ -134,7 +134,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     max_attempts = 3
     for attempt in range(max_attempts):
-        article_data = generate_with_openai(category, existing_titles)
+        article_data = generate_with_groq(category, existing_titles)
         
         if not check_plagiarism(article_data['content'], existing_articles):
             break

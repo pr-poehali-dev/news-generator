@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,8 +36,9 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const loadNews = async () => {
     setLoading(true);
@@ -144,6 +146,14 @@ export default function Index() {
             
             <div className="flex items-center gap-3">
               <Button 
+                onClick={() => navigate('/admin')}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <Icon name="Settings" className="mr-2" size={16} />
+                Админ-панель
+              </Button>
+              <Button 
                 onClick={handleGenerateNews}
                 disabled={generating}
                 className="bg-gradient-to-r from-[#1EAEDB] to-[#0c8cb8] hover:from-[#0c8cb8] hover:to-[#1EAEDB] text-white border-0"
@@ -201,69 +211,63 @@ export default function Index() {
         ) : (
           <div className="space-y-4">
             {filteredNews.map((article) => (
-              <Collapsible 
+              <Card 
                 key={article.id}
-                open={expandedId === article.id}
-                onOpenChange={(open) => setExpandedId(open ? article.id : null)}
+                className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-[#1EAEDB]/50 transition-all duration-300 overflow-hidden"
               >
-                <Card className="bg-white/5 border-white/10 hover:bg-white/10 hover:border-[#1EAEDB]/50 transition-all duration-300 overflow-hidden">
-                  <CollapsibleTrigger className="w-full text-left">
-                    <div className="flex items-start gap-4 p-6">
-                      {article.image_url && (
-                        <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden rounded-lg">
-                          <img 
-                            src={article.image_url} 
-                            alt={article.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <Badge className="absolute top-2 right-2 bg-[#1EAEDB]/90 text-white border-0 text-xs">
-                            {article.category}
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-xl font-bold text-white mb-2 hover:text-[#1EAEDB] transition-colors">
-                          {article.title}
-                        </h3>
-                        <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-                          <span className="flex items-center gap-1">
-                            <Icon name="Calendar" size={12} />
-                            {formatDate(article.created_at)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Icon name="Eye" size={12} />
-                            {article.view_count}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Icon name="FileText" size={12} />
-                            {article.word_count} слов
-                          </span>
-                        </div>
-                        <p className="text-gray-400 text-sm line-clamp-2">
-                          {article.content}
-                        </p>
-                      </div>
-                      
-                      <Icon 
-                        name={expandedId === article.id ? "ChevronUp" : "ChevronDown"} 
-                        className="text-[#1EAEDB] flex-shrink-0 mt-1" 
-                        size={24} 
+                <div className="flex items-start gap-4 p-6">
+                  {article.image_url && (
+                    <div 
+                      className="relative w-32 h-32 flex-shrink-0 overflow-hidden rounded-lg cursor-pointer"
+                      onClick={() => navigate(`/news/${article.id}`)}
+                    >
+                      <img 
+                        src={article.image_url} 
+                        alt={article.title}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform"
                       />
+                      <Badge className="absolute top-2 right-2 bg-[#1EAEDB]/90 text-white border-0 text-xs">
+                        {article.category}
+                      </Badge>
                     </div>
-                  </CollapsibleTrigger>
+                  )}
                   
-                  <CollapsibleContent className="px-6 pb-6">
-                    <div className="border-t border-white/10 pt-6">
-                      <div className="prose prose-invert max-w-none">
-                        <div className="text-gray-300 whitespace-pre-wrap leading-relaxed">
-                          {article.content}
-                        </div>
-                      </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 
+                      className="text-xl font-bold text-white mb-2 hover:text-[#1EAEDB] transition-colors cursor-pointer"
+                      onClick={() => navigate(`/news/${article.id}`)}
+                    >
+                      {article.title}
+                    </h3>
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                      <span className="flex items-center gap-1">
+                        <Icon name="Calendar" size={12} />
+                        {formatDate(article.created_at)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Icon name="Eye" size={12} />
+                        {article.view_count}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Icon name="FileText" size={12} />
+                        {article.word_count} слов
+                      </span>
                     </div>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
+                    <p className="text-gray-400 text-sm line-clamp-2 mb-3">
+                      {article.content}
+                    </p>
+                    <Button
+                      onClick={() => navigate(`/news/${article.id}`)}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#1EAEDB]/50 text-[#1EAEDB] hover:bg-[#1EAEDB]/10"
+                    >
+                      Читать полностью
+                      <Icon name="ArrowRight" className="ml-2" size={14} />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             ))}
           </div>
         )}
