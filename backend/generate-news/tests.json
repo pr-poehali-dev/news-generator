@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Generate news article",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "id": "number",
+        "title": "string",
+        "category": "string",
+        "content": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
